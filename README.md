@@ -4,7 +4,7 @@
 [![Build Status](https://travis-ci.org/zemirco/jira.svg)](https://travis-ci.org/zemirco/jira)
 [![GoDoc](https://godoc.org/github.com/zemirco/jira?status.svg)](https://godoc.org/github.com/zemirco/jira)
 
-Jira client in Go.
+JIRA REST API client in Go.
 
 ## Example
 
