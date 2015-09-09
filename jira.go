@@ -126,7 +126,7 @@ type EstimateStatistic struct {
 
 // SprintReport get all issues for given Rapid View Id and Sprint Id.
 func (j *Jira) SprintReport(rapidViewId, sprintId int) (*SprintReport, error) {
-	url := fmt.Sprintf("%s/rest/greenhopper/latest/rapid/charts/sprintreport?rapidViewId=%d&sprintId=%d", j.Url, rapidViewId, sprintId)
+	url := fmt.Sprintf("%srest/greenhopper/latest/rapid/charts/sprintreport?rapidViewId=%d&sprintId=%d", j.Url, rapidViewId, sprintId)
 	body, err := j.request(url)
 	if err != nil {
 		return nil, err
