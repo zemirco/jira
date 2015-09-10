@@ -4,7 +4,7 @@ import (
 	"testing"
 )
 
-var jira = New("https://jira.atlassian.com/")
+var jira, _ = New("https://jira.atlassian.com/")
 
 func TestRapidViews(t *testing.T) {
 	rapidViews, err := jira.RapidViews()
@@ -50,7 +50,7 @@ func TestSprintReport(t *testing.T) {
 // 	}
 //
 // 	// get session
-// 	res, err := jira.GetSession(createSessionResponse.Session.Value)
+// 	res, err := jira.GetSession()
 // 	if err != nil {
 // 		t.Fatal(err)
 // 	}
@@ -59,13 +59,13 @@ func TestSprintReport(t *testing.T) {
 // 	}
 //
 // 	// delete session
-// 	err = jira.DeleteSession(createSessionResponse.Session.Value)
+// 	err = jira.DeleteSession()
 // 	if err != nil {
 // 		t.Fatal(err)
 // 	}
 //
 // 	// get session
-// 	res, err = jira.GetSession(createSessionResponse.Session.Value)
+// 	res, err = jira.GetSession()
 // 	if err != nil {
 // 		t.Fatal(err)
 // 	}

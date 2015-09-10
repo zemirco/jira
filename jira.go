@@ -15,16 +15,23 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/http/cookiejar"
 )
 
 type Jira struct {
-	Url      string
+	Url string
+	Jar *cookiejar.Jar
 }
 
-func New(url string) *Jira {
+func New(url string) (*Jira, error) {
+	jar, err := cookiejar.New(nil)
+	if err != nil {
+		return nil, err
+	}
 	return &Jira{
 		url,
-	}
+		jar,
+	}, nil
 }
 
 type CreateSessionResponse struct {
@@ -62,7 +69,7 @@ func (j *Jira) CreateSession(username, password string) (*CreateSessionResponse,
 		return nil, err
 	}
 	data := bytes.NewReader(result)
-	res, err := j.request("POST", url, "application/json", data, nil)
+	res, err := j.request("POST", url, "application/json", data)
 	if err != nil {
 		return nil, err
 	}
@@ -71,13 +78,9 @@ func (j *Jira) CreateSession(username, password string) (*CreateSessionResponse,
 	return createSessionResponse, json.NewDecoder(res.Body).Decode(&createSessionResponse)
 }
 
-func (j *Jira) GetSession(value string) (*GetSessionResponse, error) {
+func (j *Jira) GetSession() (*GetSessionResponse, error) {
 	url := fmt.Sprintf("%srest/auth/1/session", j.Url)
-	cookie := http.Cookie{
-		Name: "JSESSIONID",
-		Value: value,
-	}
-	res, err := j.request("GET", url, "", nil, &cookie)
+	res, err := j.request("GET", url, "", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -86,13 +89,9 @@ func (j *Jira) GetSession(value string) (*GetSessionResponse, error) {
 	return getSessionResponse, json.NewDecoder(res.Body).Decode(&getSessionResponse)
 }
 
-func (j *Jira) DeleteSession(value string) error {
+func (j *Jira) DeleteSession() error {
 	url := fmt.Sprintf("%srest/auth/1/session", j.Url)
-	cookie := http.Cookie{
-		Name: "JSESSIONID",
-		Value: value,
-	}
-	res, err := j.request("DELETE", url, "", nil, &cookie)
+	res, err := j.request("DELETE", url, "", nil)
 	if err != nil {
 		return err
 	}
@@ -133,7 +132,7 @@ type Owner struct {
 // RapidViews gets all available Rapid Views.
 func (j *Jira) RapidViews() (*RapidViews, error) {
 	url := fmt.Sprintf("%srest/greenhopper/latest/rapidviews/list", j.Url)
-	res, err := j.request("GET", url, "", nil, nil)
+	res, err := j.request("GET", url, "", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -158,7 +157,7 @@ type Sprint struct {
 // SprintQuery get all sprints for given Rapid View Id.
 func (j *Jira) SprintQuery(rapidViewId int) (*SprintQuery, error) {
 	url := fmt.Sprintf("%srest/greenhopper/latest/sprintquery/%d", j.Url, rapidViewId)
-	res, err := j.request("GET", url, "", nil, nil)
+	res, err := j.request("GET", url, "", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -197,7 +196,7 @@ type EstimateStatistic struct {
 // SprintReport get all issues for given Rapid View Id and Sprint Id.
 func (j *Jira) SprintReport(rapidViewId, sprintId int) (*SprintReport, error) {
 	url := fmt.Sprintf("%srest/greenhopper/latest/rapid/charts/sprintreport?rapidViewId=%d&sprintId=%d", j.Url, rapidViewId, sprintId)
-	res, err := j.request("GET", url, "", nil, nil)
+	res, err := j.request("GET", url, "", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -206,7 +205,7 @@ func (j *Jira) SprintReport(rapidViewId, sprintId int) (*SprintReport, error) {
 	return sprintReport, json.NewDecoder(res.Body).Decode(&sprintReport)
 }
 
-func (j *Jira) request(method, url, contentType string, body io.Reader, cookie *http.Cookie) (*http.Response, error) {
+func (j *Jira) request(method, url, contentType string, body io.Reader) (*http.Response, error) {
 	req, err := http.NewRequest(method, url, body)
 	if err != nil {
 		return nil, err
@@ -214,9 +213,11 @@ func (j *Jira) request(method, url, contentType string, body io.Reader, cookie *
 	if contentType != "" {
 		req.Header.Set("Content-Type", contentType)
 	}
-	if cookie != nil {
-		req.AddCookie(cookie)
+	client := &http.Client{Jar: j.Jar}
+	res, err := client.Do(req)
+	if err != nil {
+		return nil, err
 	}
-	client := &http.Client{}
-	return client.Do(req)
+	j.Jar.SetCookies(req.URL, res.Cookies())
+	return res, nil
 }
