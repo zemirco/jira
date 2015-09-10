@@ -4,7 +4,8 @@ import (
 	"testing"
 )
 
-var jira, _ = New("https://jira.atlassian.com/")
+const uri = "https://jira.atlassian.com/"
+var jira, _ = New(uri)
 
 func TestRapidViews(t *testing.T) {
 	rapidViews, err := jira.RapidViews()
@@ -48,6 +49,9 @@ func TestSprintReport(t *testing.T) {
 // 	if createSessionResponse.Session.Name != "JSESSIONID" {
 // 		t.Error("wrong session name")
 // 	}
+//
+// 	// create new client with authenticated user / session value
+// 	jira, _ = NewAuth(uri, createSessionResponse.Session.Value)
 //
 // 	// get session
 // 	res, err := jira.GetSession()

@@ -16,6 +16,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/cookiejar"
+	"net/url"
 )
 
 type Jira struct {
@@ -30,6 +31,28 @@ func New(url string) (*Jira, error) {
 	}
 	return &Jira{
 		url,
+		jar,
+	}, nil
+}
+
+func NewAuth(uri, value string) (*Jira, error) {
+	cookies := []*http.Cookie{
+		&http.Cookie{
+			Name:  "JSESSIONID",
+			Value: value,
+		},
+	}
+	jar, err := cookiejar.New(nil)
+	if err != nil {
+		return nil, err
+	}
+	cookieURL, err := url.Parse(uri)
+	if err != nil {
+		return nil, err
+	}
+	jar.SetCookies(cookieURL, cookies)
+	return &Jira{
+		uri,
 		jar,
 	}, nil
 }
