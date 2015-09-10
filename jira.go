@@ -9,7 +9,9 @@
 package jira
 
 import (
+	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -17,20 +19,88 @@ import (
 
 type Jira struct {
 	Url      string
-	Username string
-	Password string
 }
 
 func New(url string) *Jira {
-	return NewAuth(url, "", "")
-}
-
-func NewAuth(url, username, password string) *Jira {
 	return &Jira{
 		url,
+	}
+}
+
+type CreateSessionResponse struct {
+	Session struct {
+		Name  string `json:"name"`
+		Value string `json:"value"`
+	} `json:"session"`
+	LoginInfo `json:"loginInfo"`
+}
+
+type LoginInfo struct {
+	FailedLoginCount    int    `json:"failedLoginCount"`
+	LoginCount          int    `json:"loginCount"`
+	LastFailedLoginTime string `json:"lastFailedLoginTime"`
+	PreviousLoginTime   string `json:"previousLoginTime"`
+}
+
+type GetSessionResponse struct {
+	Self      string `json:"self"`
+	Name      string `json:"name"`
+	LoginInfo `json:"loginInfo"`
+}
+
+func (j *Jira) CreateSession(username, password string) (*CreateSessionResponse, error) {
+	url := fmt.Sprintf("%srest/auth/1/session", j.Url)
+	creds := struct {
+		Username string `json:"username"`
+		Password string `json:"password"`
+	}{
 		username,
 		password,
 	}
+	result, err := json.Marshal(creds)
+	if err != nil {
+		return nil, err
+	}
+	data := bytes.NewReader(result)
+	res, err := j.request("POST", url, "application/json", data, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+	createSessionResponse := &CreateSessionResponse{}
+	return createSessionResponse, json.NewDecoder(res.Body).Decode(&createSessionResponse)
+}
+
+func (j *Jira) GetSession(value string) (*GetSessionResponse, error) {
+	url := fmt.Sprintf("%srest/auth/1/session", j.Url)
+	cookie := http.Cookie{
+		Name: "JSESSIONID",
+		Value: value,
+	}
+	res, err := j.request("GET", url, "", nil, &cookie)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+	getSessionResponse := &GetSessionResponse{}
+	return getSessionResponse, json.NewDecoder(res.Body).Decode(&getSessionResponse)
+}
+
+func (j *Jira) DeleteSession(value string) error {
+	url := fmt.Sprintf("%srest/auth/1/session", j.Url)
+	cookie := http.Cookie{
+		Name: "JSESSIONID",
+		Value: value,
+	}
+	res, err := j.request("DELETE", url, "", nil, &cookie)
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
+	if res.StatusCode == http.StatusUnauthorized {
+		return errors.New(http.StatusText(res.StatusCode))
+	}
+	return nil
 }
 
 type RapidViews struct {
@@ -63,13 +133,13 @@ type Owner struct {
 // RapidViews gets all available Rapid Views.
 func (j *Jira) RapidViews() (*RapidViews, error) {
 	url := fmt.Sprintf("%srest/greenhopper/latest/rapidviews/list", j.Url)
-	body, err := j.request(url)
+	res, err := j.request("GET", url, "", nil, nil)
 	if err != nil {
 		return nil, err
 	}
-	defer body.Close()
+	defer res.Body.Close()
 	rapidViews := &RapidViews{}
-	return rapidViews, json.NewDecoder(body).Decode(&rapidViews)
+	return rapidViews, json.NewDecoder(res.Body).Decode(&rapidViews)
 }
 
 type SprintQuery struct {
@@ -88,13 +158,13 @@ type Sprint struct {
 // SprintQuery get all sprints for given Rapid View Id.
 func (j *Jira) SprintQuery(rapidViewId int) (*SprintQuery, error) {
 	url := fmt.Sprintf("%srest/greenhopper/latest/sprintquery/%d", j.Url, rapidViewId)
-	body, err := j.request(url)
+	res, err := j.request("GET", url, "", nil, nil)
 	if err != nil {
 		return nil, err
 	}
-	defer body.Close()
+	defer res.Body.Close()
 	sprintQuery := &SprintQuery{}
-	return sprintQuery, json.NewDecoder(body).Decode(&sprintQuery)
+	return sprintQuery, json.NewDecoder(res.Body).Decode(&sprintQuery)
 }
 
 type SprintReport struct {
@@ -127,27 +197,26 @@ type EstimateStatistic struct {
 // SprintReport get all issues for given Rapid View Id and Sprint Id.
 func (j *Jira) SprintReport(rapidViewId, sprintId int) (*SprintReport, error) {
 	url := fmt.Sprintf("%srest/greenhopper/latest/rapid/charts/sprintreport?rapidViewId=%d&sprintId=%d", j.Url, rapidViewId, sprintId)
-	body, err := j.request(url)
+	res, err := j.request("GET", url, "", nil, nil)
 	if err != nil {
 		return nil, err
 	}
-	defer body.Close()
+	defer res.Body.Close()
 	sprintReport := &SprintReport{}
-	return sprintReport, json.NewDecoder(body).Decode(&sprintReport)
+	return sprintReport, json.NewDecoder(res.Body).Decode(&sprintReport)
 }
 
-func (j *Jira) request(url string) (io.ReadCloser, error) {
-	req, err := http.NewRequest("GET", url, nil)
+func (j *Jira) request(method, url, contentType string, body io.Reader, cookie *http.Cookie) (*http.Response, error) {
+	req, err := http.NewRequest(method, url, body)
 	if err != nil {
 		return nil, err
 	}
-	if j.Username != "" && j.Password != "" {
-		req.SetBasicAuth(j.Username, j.Password)
+	if contentType != "" {
+		req.Header.Set("Content-Type", contentType)
+	}
+	if cookie != nil {
+		req.AddCookie(cookie)
 	}
 	client := &http.Client{}
-	res, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	return res.Body, nil
+	return client.Do(req)
 }

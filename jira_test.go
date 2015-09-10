@@ -37,5 +37,39 @@ func TestSprintReport(t *testing.T) {
 	if report.Sprint.Id != 922 {
 		t.Error("wrong sprint id")
 	}
-	t.Logf("%+v", report)
 }
+
+// func TestSession(t *testing.T) {
+// 	// create session
+// 	createSessionResponse, err := jira.CreateSession("username", "password")
+// 	if err != nil {
+// 		t.Fatal(err)
+// 	}
+// 	if createSessionResponse.Session.Name != "JSESSIONID" {
+// 		t.Error("wrong session name")
+// 	}
+//
+// 	// get session
+// 	res, err := jira.GetSession(createSessionResponse.Session.Value)
+// 	if err != nil {
+// 		t.Fatal(err)
+// 	}
+// 	if res.Name == "" {
+// 		t.Error("wrong session name")
+// 	}
+//
+// 	// delete session
+// 	err = jira.DeleteSession(createSessionResponse.Session.Value)
+// 	if err != nil {
+// 		t.Fatal(err)
+// 	}
+//
+// 	// get session
+// 	res, err = jira.GetSession(createSessionResponse.Session.Value)
+// 	if err != nil {
+// 		t.Fatal(err)
+// 	}
+// 	if res.Name != "" {
+// 		t.Error("session should not have a name")
+// 	}
+// }
